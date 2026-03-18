@@ -1,7 +1,85 @@
+//  ESP32dfmini01
+//
+/*#include "HardwareSerial.h"
+#include "DFRobotDFPlayerMini.h"
+#include "Arduino.h"
+const byte RXD2 = 44; // Connects to module's RX 
+const byte TXD2 = 43; // Connects to module's TX 
+
+HardwareSerial dfSD(1); // Use UART channel 1
+DFRobotDFPlayerMini player;
+   
+void setup() 
+{
+  Serial.begin(115200);
+  dfSD.begin(9600, SERIAL_8N1, RXD2, TXD2);  // 16,17
+  delay(5000);
+
+  if (player.begin(dfSD)) 
+  {
+    Serial.println("OK");
+
+    // Set volume to maximum (0 to 30).
+    player.volume(17); //30 is very loud
+  } 
+  else 
+  {
+    Serial.println("Connecting to DFPlayer Mini failed!");
+  }
+}
+
+void loop() 
+{
+  Serial.println("Playing #1");
+  player.play(1);
+  Serial.println("play start");
+  delay(5000);
+  Serial.println("played");
+  delay(1000);
+
+  Serial.println("Playing #2");
+  player.play(2);
+  Serial.println("play start");
+  delay(10000);
+  Serial.println("played");
+  delay(1000);
+}*/
+
+
+//  ESP32dfmini01
+//
+#include "HardwareSerial.h"
+#include "DFRobotDFPlayerMini.h"
+#include "Arduino.h"
+
+const byte RXD2 = 7;   // ESP32 RX  -> TX du module
+const byte TXD2 = 6;   // ESP32 TX  -> RX du module
+
+HardwareSerial dfSD(1); // UART1
+DFRobotDFPlayerMini player;
+
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);          // moniteur série plus rapide
+  delay(2000);
+
+  dfSD.begin(9600, SERIAL_8N1, RXD2, TXD2);
+  delay(3000);                   // laisser le temps au DFPlayer de booter
+
+  Serial.println("Init DFPlayer...");
+  if (player.begin(dfSD)) {
+    Serial.println("DFPlayer OK");
+    player.volume(17);           // 0..30
+  } else {
+    Serial.println("Connecting to DFPlayer Mini failed!");
+  }
 }
 
 void loop() {
+  Serial.println("Playing #1");
+  player.play(1);
+  delay(6000);
 
+  Serial.println("Playing #2");
+  player.play(2);
+  delay(11000);
 }
