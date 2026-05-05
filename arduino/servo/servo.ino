@@ -20,6 +20,7 @@ void setup() {
 void loop() {
   static int value;
   value = convert(analogRead(pin_anal));
+  //value = 10;
   ledcWrite(ledPin, value);
   Serial.println(value);
   delay(100);
