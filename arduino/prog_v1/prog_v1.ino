@@ -7,60 +7,56 @@
 // Configuration
 // =========================
 
-constexpr gpio_num_t WAKEUP_GPIO = GPIO_NUM_5;
-constexpr uint8_t EN_PIN = 12;
+constexpr gpio_num_t WAKEUP_GPIO      = GPIO_NUM_5;
+constexpr uint8_t    EN_PIN           = 12;
+constexpr uint8_t    SERVO_PIN        = 13;
 
-constexpr uint8_t SERVO_PIN = 13;
+constexpr uint32_t   TIME_WINDOW_MS   = 5000;
+constexpr uint32_t   DEBOUNCE_MS      = 600;
+constexpr uint8_t    REQUIRED_PULSES  = 4;
+constexpr uint32_t   TIME_OPENED_MS   = 10000;
 
-constexpr uint32_t TIME_WINDOW_MS = 5000;
-constexpr uint32_t DEBOUNCE_MS    = 600;
-constexpr uint8_t REQUIRED_PULSES = 3;
-constexpr uint32_t TIME_OPENED_MS = 10000;
+constexpr uint32_t   SOUND_VOLUME   = 15;
 
-const byte RXD2 = 7;
-const byte TXD2 = 6;
-HardwareSerial dfSD(1);
-DFRobotDFPlayerMini player;
+// =========================
+// DFPlayer
+// =========================
+
+constexpr uint8_t RXD2 = 7;
+constexpr uint8_t TXD2 = 6;
+
+HardwareSerial       dfSD(1);
+DFRobotDFPlayerMini  player;
 
 // =========================
 // LEDC / LED Fade
 // =========================
 
-#define LEDC_TIMER_12_BIT  12
-#define LEDC_BASE_FREQ     5000
-#define LED_PIN_BLUE       10
-#define LED_PIN_RED        11
+constexpr uint8_t  LEDC_TIMER_BITS       = 12;
+constexpr uint32_t LEDC_BASE_FREQ        = 5000;
+constexpr uint8_t  LED_PIN_BLUE          = 10;
+constexpr uint8_t  LED_PIN_RED           = 11;
 
-
-#define LEDC_START_DUTY_BLUE   1000
-#define LEDC_TARGET_DUTY_BLUE  4095
-#define LEDC_START_DUTY_RED    330
-#define LEDC_TARGET_DUTY_RED   1500
-#define LEDC_FADE_TIME         2000
-
-volatile bool fade_ended = false;
-bool fade_in = true;
-bool leds_running = false;
-
-const int freq_servo       = 50;
-const int resolution_servo = 14;
-int val_pwm_closed = 14300;
-int val_pwm_opened = 15100;
-
-
-void ARDUINO_ISR_ATTR LED_FADE_ISR() {
-  fade_ended = true;
-}
+constexpr uint32_t LEDC_START_DUTY_BLUE  = 1000;
+constexpr uint32_t LEDC_TARGET_DUTY_BLUE = 4095;
+constexpr uint32_t LEDC_START_DUTY_RED   = 330;
+constexpr uint32_t LEDC_TARGET_DUTY_RED  = 1500;
+constexpr uint32_t LEDC_FADE_TIME        = 2000;
 
 // =========================
-// Variables
+// Servo
 // =========================
 
-uint8_t pulseCount = 0;
-unsigned long startTime     = 0;
-unsigned long lastPulseTime = 0;
+constexpr uint32_t SERVO_FREQ       = 50;
+constexpr uint8_t  SERVO_RESOLUTION = 14;
+constexpr int      PWM_CLOSED       = 14300;
+constexpr int      PWM_OPENED       = 15100;
 
-enum State {
+// =========================
+// State machine
+// =========================
+
+enum class State : uint8_t {
   SLEEP,
   VERIF,
   INIT,
@@ -69,10 +65,30 @@ enum State {
   CLOSING
 };
 
-State state = VERIF;
+// =========================
+// Globals
+// =========================
+
+volatile bool fade_ended  = false;
+bool          fade_in     = true;
+bool          leds_running = false;
+
+uint8_t       pulseCount   = 0;
+unsigned long startTime    = 0;
+unsigned long lastPulseTime = 0;
+
+State state = State::VERIF;
 
 // =========================
-// Fonctions
+// ISR
+// =========================
+
+void ARDUINO_ISR_ATTR onLedFadeEnd() {
+  fade_ended = true;
+}
+
+// =========================
+// MP3 Player
 // =========================
 
 void initMP3Player() {
@@ -81,24 +97,29 @@ void initMP3Player() {
   Serial.println("Init DFPlayer...");
   if (player.begin(dfSD, false)) {
     Serial.println("DFPlayer OK");
-    player.volume(10);
+    player.volume(SOUND_VOLUME);
   } else {
-    Serial.println("Connecting to DFPlayer Mini failed!");
+    Serial.println("DFPlayer init failed!");
   }
 }
 
+// =========================
+// LED Fade
+// =========================
+
 void startLedFade() {
   leds_running = true;
-  fade_in = true;
-  fade_ended = true;  // On triche : on simule une fin de fade pour que updateLedFade() démarre tout seul
+  fade_in      = true;
+  fade_ended   = true; // Déclenche updateLedFade() dès le premier appel
 
-  ledcAttach(LED_PIN_BLUE, LEDC_BASE_FREQ, LEDC_TIMER_12_BIT);
-  ledcAttach(LED_PIN_RED,  LEDC_BASE_FREQ, LEDC_TIMER_12_BIT);
+  ledcAttach(LED_PIN_BLUE, LEDC_BASE_FREQ, LEDC_TIMER_BITS);
+  ledcAttach(LED_PIN_RED,  LEDC_BASE_FREQ, LEDC_TIMER_BITS);
 }
 
 void stopLedFade() {
   leds_running = false;
-  fade_ended = false;
+  fade_ended   = false;
+
   ledcWrite(LED_PIN_BLUE, 0);
   ledcWrite(LED_PIN_RED,  0);
   ledcDetach(LED_PIN_BLUE);
@@ -106,21 +127,24 @@ void stopLedFade() {
 }
 
 void updateLedFade() {
-  if (!leds_running) return;
-  if (!fade_ended) return;
+  if (!leds_running || !fade_ended) return;
 
   fade_ended = false;
 
   if (fade_in) {
-    ledcFadeWithInterrupt(LED_PIN_BLUE, LEDC_START_DUTY_BLUE, LEDC_TARGET_DUTY_BLUE, LEDC_FADE_TIME, LED_FADE_ISR);
-    ledcFadeWithInterrupt(LED_PIN_RED,  LEDC_START_DUTY_RED,  LEDC_TARGET_DUTY_RED,  LEDC_FADE_TIME, LED_FADE_ISR);
-    fade_in = false;
+    ledcFadeWithInterrupt(LED_PIN_BLUE, LEDC_START_DUTY_BLUE, LEDC_TARGET_DUTY_BLUE, LEDC_FADE_TIME, onLedFadeEnd);
+    ledcFadeWithInterrupt(LED_PIN_RED,  LEDC_START_DUTY_RED,  LEDC_TARGET_DUTY_RED,  LEDC_FADE_TIME, onLedFadeEnd);
   } else {
-    ledcFadeWithInterrupt(LED_PIN_BLUE, LEDC_TARGET_DUTY_BLUE, LEDC_START_DUTY_BLUE, LEDC_FADE_TIME, LED_FADE_ISR);
-    ledcFadeWithInterrupt(LED_PIN_RED,  LEDC_TARGET_DUTY_RED,  LEDC_START_DUTY_RED,  LEDC_FADE_TIME, LED_FADE_ISR);
-    fade_in = true;
+    ledcFadeWithInterrupt(LED_PIN_BLUE, LEDC_TARGET_DUTY_BLUE, LEDC_START_DUTY_BLUE, LEDC_FADE_TIME, onLedFadeEnd);
+    ledcFadeWithInterrupt(LED_PIN_RED,  LEDC_TARGET_DUTY_RED,  LEDC_START_DUTY_RED,  LEDC_FADE_TIME, onLedFadeEnd);
   }
+
+  fade_in = !fade_in;
 }
+
+// =========================
+// Sleep
+// =========================
 
 void goToSleep(const char* reason) {
   Serial.println(reason);
@@ -129,6 +153,10 @@ void goToSleep(const char* reason) {
   esp_deep_sleep_start();
 }
 
+// =========================
+// Pulse detection
+// =========================
+
 bool pulseDetected() {
   static bool previousState = false;
   bool currentState = digitalRead(WAKEUP_GPIO);
@@ -136,8 +164,8 @@ bool pulseDetected() {
   if (currentState && !previousState) {
     unsigned long now = millis();
     if ((now - lastPulseTime) > DEBOUNCE_MS) {
-      lastPulseTime = now;
-      previousState = currentState;
+      lastPulseTime  = now;
+      previousState  = currentState;
       return true;
     }
   }
@@ -164,16 +192,15 @@ void setup() {
 void loop() {
   switch (state) {
 
-    case SLEEP:
-      goToSleep((pulseCount == REQUIRED_PULSES) ? "Done -> Sleep" : "Timeout -> Sleep");
+    case State::SLEEP:
+      goToSleep(pulseCount >= REQUIRED_PULSES ? "Done -> Sleep" : "Timeout -> Sleep");
       break;
 
-    case VERIF:
+    case State::VERIF:
     {
-      unsigned long now = millis();
-
-      if ((now - startTime) >= TIME_WINDOW_MS) {
-        state = SLEEP;
+      if ((millis() - startTime) >= TIME_WINDOW_MS) {
+        state = State::SLEEP;
+        break;
       }
 
       if (pulseDetected()) {
@@ -184,45 +211,41 @@ void loop() {
 
       if (pulseCount >= REQUIRED_PULSES) {
         Serial.println(String(REQUIRED_PULSES) + " pulses detected");
-        state = INIT;
+        state = State::INIT;
       }
       break;
     }
 
-    case INIT:
+    case State::INIT:
       digitalWrite(EN_PIN, HIGH);
       initMP3Player();
-      startLedFade();  
-      ledcAttach(SERVO_PIN, freq_servo, resolution_servo); //init pwm du servo
-      state = OPENING;
+      startLedFade();
+      ledcAttach(SERVO_PIN, SERVO_FREQ, SERVO_RESOLUTION);
+      state = State::OPENING;
       break;
 
-    case OPENING:
+    case State::OPENING:
       Serial.println("Playing #1");
       player.play(1);
       delay(1000);
-      updateLedFade(); 
+      updateLedFade();
       delay(1600);
-      ledcWrite(SERVO_PIN, val_pwm_opened);
+      ledcWrite(SERVO_PIN, PWM_OPENED);
       startTime = millis();
-      state = WAIT;
+      state = State::WAIT;
       break;
 
-    case WAIT:
-    {
-      updateLedFade(); 
-
-      unsigned long now = millis();
-      if ((now - startTime) >= TIME_OPENED_MS) {
-        state = CLOSING;
+    case State::WAIT:
+      updateLedFade();
+      if ((millis() - startTime) >= TIME_OPENED_MS) {
+        state = State::CLOSING;
       }
       break;
-    }
 
-    case CLOSING:
-      ledcWrite(SERVO_PIN, val_pwm_closed);
-      stopLedFade();    // Éteint les LEDs proprement
-      state = SLEEP;
+    case State::CLOSING:
+      ledcWrite(SERVO_PIN, PWM_CLOSED);
+      stopLedFade();
+      state = State::SLEEP;
       break;
   }
 }
