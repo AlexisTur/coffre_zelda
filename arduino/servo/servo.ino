@@ -1,4 +1,4 @@
-const int ledPin     = 8;
+const int ledPin     = 13;
 const int freq       = 50;
 const int resolution = 14;
 
@@ -13,14 +13,16 @@ int val_pwm_min = 1;
 int convert(int anal_value);
 
 void setup() {
+  pinMode(12,OUTPUT);
   ledcAttach(ledPin, freq, resolution);
   Serial.begin(9600);
+  digitalWrite(12,1);
 }
 
 void loop() {
   static int value;
   value = convert(analogRead(pin_anal));
-  //value = 10;
+  value = 15000;
   ledcWrite(ledPin, value);
   Serial.println(value);
   delay(100);

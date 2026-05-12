@@ -10,6 +10,8 @@ HardwareSerial dfSD(1);  // UART1 (pas 3 !)
 DFRobotDFPlayerMini player;
 
 void setup() {
+  pinMode(12,OUTPUT);
+  digitalWrite(12,1);
   Serial.begin(9600);
   delay(2000);
 

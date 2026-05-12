@@ -1,19 +1,16 @@
 
 
-int val;
-
 void setup() {
-  pinMode(8, INPUT);
-  Serial.begin(9600);
+  pinMode(1, OUTPUT);//vert
+  pinMode(11, OUTPUT);//rouge
+  pinMode(10, OUTPUT);//bleu
+  digitalWrite(1,0);
+  digitalWrite(11,1);
+  digitalWrite(10,0);
 }
 
 void loop() {
-  val = digitalRead(8);
-  if(val){
-    Serial.println("hey");
-    delay(100);
-  }
-  
+  delay(1000);
 }
 
 
