@@ -22,7 +22,7 @@ unsigned long startTime      = 0;
 unsigned long lastPulseTime  = 0;
 
 // =========================
-// Fonctions
+// Fonctions 
 // =========================
 
 void goToSleep(const char* reason)

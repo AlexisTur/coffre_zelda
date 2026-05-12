@@ -7,8 +7,8 @@ int pin_anal =7; //gpio7
 int val_anal_max = 1850;
 int val_anal_min = 0;
 
-int val_pwm_max = 16100;//16383
-int val_pwm_min = 1;
+int val_pwm_closed = 14300;//16383
+int val_pwm_opened = 15100;
 
 int convert(int anal_value);
 
@@ -21,8 +21,8 @@ void setup() {
 
 void loop() {
   static int value;
-  value = convert(analogRead(pin_anal));
-  value = 15000;
+  //value = convert(analogRead(pin_anal));
+  value = val_pwm_closed;
   ledcWrite(ledPin, value);
   Serial.println(value);
   delay(100);

@@ -1,5 +1,5 @@
 
-
+/*
 void setup() {
   pinMode(1, OUTPUT);//vert
   pinMode(11, OUTPUT);//rouge
@@ -11,12 +11,39 @@ void setup() {
 
 void loop() {
   delay(1000);
+}*/
+
+
+constexpr uint8_t PIN_RED   = 11;
+constexpr uint8_t PIN_BLUE  = 10;
+
+const int ledPin     = 13;
+const int freq       = 50;
+const int resolution = 14;
+
+int pin_anal =7; //gpio7
+
+int val_anal_max = 1850;
+int val_anal_min = 0;
+
+int val_pwm_max = 16100;//16383
+int val_pwm_min = 1;
+
+
+
+void setup() {
+  ledcAttach(PIN_RED, freq, resolution);
+  ledcAttach(PIN_BLUE, freq, resolution);
 }
 
+void loop() {
+  static int value;
+  value = convert(analogRead(pin_anal));
+  value = 15000;
+  ledcWrite(ledPin, value);
+  delay(100);
 
-
-
-
+}
 
 
 
