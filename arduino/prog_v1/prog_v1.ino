@@ -16,7 +16,10 @@ constexpr uint32_t   DEBOUNCE_MS      = 600;
 constexpr uint8_t    REQUIRED_PULSES  = 4;
 constexpr uint32_t   TIME_OPENED_MS   = 10000;
 
-constexpr uint32_t   SOUND_VOLUME   = 15;
+constexpr uint32_t   SOUND_VOLUME     = 15;
+
+constexpr uint32_t   SERVO_MOVE_MS    = 1000; // Durée du mouvement servo en ms
+constexpr uint32_t   SERVO_STEP_MS    = 20;   // Intervalle entre chaque pas (ms)
 
 // =========================
 // DFPlayer
@@ -35,7 +38,7 @@ DFRobotDFPlayerMini  player;
 constexpr uint8_t  LEDC_TIMER_BITS       = 12;
 constexpr uint32_t LEDC_BASE_FREQ        = 5000;
 constexpr uint8_t  LED_PIN_BLUE          = 10;
-constexpr uint8_t  LED_PIN_RED           = 11;
+constexpr uint8_t  LED_PIN_RED           = 1;
 
 constexpr uint32_t LEDC_START_DUTY_BLUE  = 1000;
 constexpr uint32_t LEDC_TARGET_DUTY_BLUE = 4095;
@@ -49,8 +52,8 @@ constexpr uint32_t LEDC_FADE_TIME        = 2000;
 
 constexpr uint32_t SERVO_FREQ       = 50;
 constexpr uint8_t  SERVO_RESOLUTION = 14;
-constexpr int      PWM_CLOSED       = 14300;
-constexpr int      PWM_OPENED       = 15100;
+constexpr int      PWM_CLOSED       = 15200;
+constexpr int      PWM_OPENED       = 14300;
 
 // =========================
 // State machine
@@ -69,12 +72,12 @@ enum class State : uint8_t {
 // Globals
 // =========================
 
-volatile bool fade_ended  = false;
-bool          fade_in     = true;
+volatile bool fade_ended   = false;
+bool          fade_in      = true;
 bool          leds_running = false;
 
-uint8_t       pulseCount   = 0;
-unsigned long startTime    = 0;
+uint8_t       pulseCount    = 0;
+unsigned long startTime     = 0;
 unsigned long lastPulseTime = 0;
 
 State state = State::VERIF;
@@ -143,6 +146,22 @@ void updateLedFade() {
 }
 
 // =========================
+// Servo smooth move
+// =========================
+
+void moveServoSmooth(int fromPWM, int toPWM, uint32_t durationMs = SERVO_MOVE_MS, uint32_t stepMs = SERVO_STEP_MS) {
+  int steps = durationMs / stepMs;
+  for (int i = 0; i <= steps; i++) {
+    // Courbe ease-in/ease-out sinusoïdale : démarrage et arrivée progressifs
+    float t      = (float)i / (float)steps;
+    float eased  = (1.0f - cosf(t * M_PI)) / 2.0f;
+    int   pwm    = fromPWM + (int)((toPWM - fromPWM) * eased);
+    ledcWrite(SERVO_PIN, pwm);
+    delay(stepMs);
+  }
+}
+
+// =========================
 // Sleep
 // =========================
 
@@ -164,8 +183,8 @@ bool pulseDetected() {
   if (currentState && !previousState) {
     unsigned long now = millis();
     if ((now - lastPulseTime) > DEBOUNCE_MS) {
-      lastPulseTime  = now;
-      previousState  = currentState;
+      lastPulseTime = now;
+      previousState = currentState;
       return true;
     }
   }
@@ -230,7 +249,8 @@ void loop() {
       delay(1000);
       updateLedFade();
       delay(1600);
-      ledcWrite(SERVO_PIN, PWM_OPENED);
+      Serial.println("Ouverture servo...");
+      moveServoSmooth(PWM_CLOSED, PWM_OPENED); // Transition douce vers ouvert
       startTime = millis();
       state = State::WAIT;
       break;
@@ -243,7 +263,8 @@ void loop() {
       break;
 
     case State::CLOSING:
-      ledcWrite(SERVO_PIN, PWM_CLOSED);
+      Serial.println("Fermeture servo...");
+      moveServoSmooth(PWM_OPENED, PWM_CLOSED); // Transition douce vers fermé
       stopLedFade();
       state = State::SLEEP;
       break;
